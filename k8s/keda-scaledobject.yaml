@@ -1,0 +1,20 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: backend-sqs-scaler
+  namespace: warehouse-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicaCount: 2
+  maxReplicaCount: 15
+  cooldownPeriod: 300
+  pollingInterval: 30
+  triggers:
+    - type: aws-sqs-queue
+      metadata:
+        queueURL: SQS_QUEUE_URL
+        queueLength: "100"
+        awsRegion: us-east-1

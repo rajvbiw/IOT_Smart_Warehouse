@@ -1,0 +1,21 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-backend-sqs-scaler
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "warehouse-iot.fullname" . }}-backend
+  minReplicaCount: {{ .Values.autoscaling.minReplicas }}
+  maxReplicaCount: 15
+  cooldownPeriod: 300
+  pollingInterval: 30
+  triggers:
+    - type: aws-sqs-queue
+      metadata:
+        queueURL: {{ .Values.aws.sqsQueueUrl | quote }}
+        queueLength: "100"
+        awsRegion: {{ .Values.aws.region | quote }}

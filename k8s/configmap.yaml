@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: warehouse-system
+data:
+  NODE_ENV: "production"
+  DB_HOST: "RDS_ENDPOINT_PLACEHOLDER"
+  DB_PORT: "3306"
+  DB_NAME: "warehouse_iot"
+  REDIS_HOST: "ELASTICACHE_ENDPOINT_PLACEHOLDER"
+  REDIS_PORT: "6379"
+  INFLUX_URL: "http://influxdb:8086"
+  INFLUX_ORG: "warehouse-org"
+  INFLUX_BUCKET: "warehouse_sensors"
+  MQTT_BROKER_URL: "mqtt://mosquitto:1883"
+  AWS_REGION: "us-east-1"
+  AWS_IOT_ENDPOINT: "IOT_ENDPOINT_PLACEHOLDER"
+  SQS_QUEUE_URL: "SQS_QUEUE_URL_PLACEHOLDER"
+  S3_BUCKET: "warehouse-iot-reports"
+  FRONTEND_URL: "https://warehouse.example.com"
+  SOCKET_CORS_ORIGIN: "https://warehouse.example.com"
+  SIMULATE_DEVICES: "false"

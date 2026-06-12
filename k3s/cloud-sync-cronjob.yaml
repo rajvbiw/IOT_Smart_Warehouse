@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cloud-sync
+  namespace: default
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: sync-job
+              image: AWS_ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/warehouse-iot-backend:latest
+              command: ["node", "dist/scripts/sync-to-cloud.js"]
+              env:
+                - name: AWS_IOT_ENDPOINT
+                  value: "IOT_ENDPOINT_PLACEHOLDER"
+                - name: INFLUX_URL
+                  value: "http://local-influxdb:8086"
+                - name: INFLUX_TOKEN
+                  value: "admin-token-12345"
+                - name: INFLUX_ORG
+                  value: "warehouse-org"
+                - name: INFLUX_BUCKET
+                  value: "warehouse_sensors"

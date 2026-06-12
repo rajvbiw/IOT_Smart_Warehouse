@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-mosquitto
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+    app: mosquitto
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "warehouse-iot.selectorLabels" . | nindent 6 }}
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        {{- include "warehouse-iot.selectorLabels" . | nindent 8 }}
+        app: mosquitto
+    spec:
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2
+          ports:
+            - containerPort: 1883
+            - containerPort: 9001
+          volumeMounts:
+            - name: config
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf
+            - name: storage
+              mountPath: /mosquitto/data
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "warehouse-iot.fullname" . }}-mosquitto-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "warehouse-iot.fullname" . }}-mosquitto-pvc
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-mosquitto-config
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+data:
+  mosquitto.conf: |
+    persistence true
+    persistence_location /mosquitto/data/
+    log_dest stdout
+    allow_anonymous true
+    listener 1883
+    listener 9001
+    protocol websockets
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-mosquitto-pvc
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 5Gi

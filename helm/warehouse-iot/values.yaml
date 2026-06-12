@@ -1,0 +1,65 @@
+replicaCount: 2
+
+image:
+  backend:
+    repository: AWS_ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/warehouse-iot-backend
+    tag: latest
+    pullPolicy: Always
+  frontend:
+    repository: AWS_ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/warehouse-iot-frontend
+    tag: latest
+    pullPolicy: Always
+
+ingress:
+  host: warehouse.example.com
+  acmCertArn: ACM_CERT_ARN_PLACEHOLDER
+
+db:
+  host: RDS_ENDPOINT_PLACEHOLDER
+  name: warehouse_iot
+  port: 3306
+  password: CHANGE_ME
+
+redis:
+  host: ELASTICACHE_ENDPOINT_PLACEHOLDER
+  port: 6379
+
+influx:
+  url: http://influxdb:8086
+  org: warehouse-org
+  bucket: warehouse_sensors
+  token: CHANGE_ME
+
+aws:
+  region: us-east-1
+  iotEndpoint: IOT_ENDPOINT_PLACEHOLDER
+  sqsQueueUrl: SQS_URL_PLACEHOLDER
+  s3Bucket: warehouse-iot-reports
+  snsTopicArn: CHANGE_ME
+
+jwt:
+  secret: CHANGE_ME_MIN_32_CHARS
+  refreshSecret: CHANGE_ME_MIN_32_CHARS
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPU: 70
+  targetMemory: 80
+
+resources:
+  backend:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  frontend:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi

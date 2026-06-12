@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-grafana
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: local-grafana
+  template:
+    metadata:
+      labels:
+        app: local-grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.0.0
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/grafana
+            - name: provisioning-datasource
+              mountPath: /etc/grafana/provisioning/datasources/influxdb.yaml
+              subPath: influxdb.yaml
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: local-grafana-pvc
+        - name: provisioning-datasource
+          configMap:
+            name: local-grafana-datasources
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-grafana-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-grafana-datasources
+  namespace: default
+data:
+  influxdb.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: InfluxDB
+        type: influxdb
+        access: proxy
+        url: http://local-influxdb:8086
+        jsonData:
+          version: Flux
+          organization: warehouse-org
+          defaultBucket: warehouse_sensors
+        secureJsonData:
+          token: admin-token-12345
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-grafana
+  namespace: default
+spec:
+  ports:
+    - port: 3000
+  selector:
+    app: local-grafana

@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: warehouse-iot-staging
+  namespace: argocd
+spec:
+  project: warehouse-iot
+  source:
+    repoURL: "https://github.com/YOUR_ORG/warehouse-iot"
+    targetRevision: develop
+    path: helm/warehouse-iot
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-staging.yaml
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: warehouse-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        maxDuration: 3m
+        factor: 2

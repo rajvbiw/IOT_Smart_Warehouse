@@ -1,0 +1,80 @@
+# ==============================================================================
+# IoT Smart Warehouse Management System - Master Git Ignore Rules
+# ==============================================================================
+
+# Node.js / NPM Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+!backend/package.json
+!frontend/package.json
+
+# Compilation / Build Outputs
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Local Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.crt
+*.pub
+/backend/uploads/
+/backend/src/services/uploads/
+
+# Terraform Configurations & State files
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraformrc
+
+# Lambda Archive Archives
+*.zip
+/terraform/modules/lambda/src/lambda.zip
+
+# Docker / Local DB Volumes
+.db_data/
+.influx_data/
+.redis_data/
+mysql_data/
+influxdb_data/
+redis_data/
+mosquitto/data/
+mosquitto/log/
+
+# IDE / Editor Configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.classpath
+.project
+.settings/
+
+# Operating System specific files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini

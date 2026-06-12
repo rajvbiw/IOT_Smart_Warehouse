@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: warehouse-system
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:10.0.0
+          ports:
+            - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: DB_PASSWORD # reuse db password or default
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/grafana
+            - name: provisioning-datasource
+              mountPath: /etc/grafana/provisioning/datasources/influxdb.yaml
+              subPath: influxdb.yaml
+            - name: provisioning-dashboard-conf
+              mountPath: /etc/grafana/provisioning/dashboards/dashboard.yaml
+              subPath: dashboard.yaml
+            - name: provisioning-dashboard-json
+              mountPath: /etc/grafana/provisioning/dashboards/warehouse-overview.json
+              subPath: warehouse-overview.json
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: grafana-pvc
+        - name: provisioning-datasource
+          configMap:
+            name: grafana-datasources
+        - name: provisioning-dashboard-conf
+          configMap:
+            name: grafana-dashboards-prov
+        - name: provisioning-dashboard-json
+          configMap:
+            name: grafana-dashboards-json
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: warehouse-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: warehouse-system
+data:
+  influxdb.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: InfluxDB
+        type: influxdb
+        access: proxy
+        url: http://influxdb:8086
+        jsonData:
+          version: Flux
+          organization: warehouse-org
+          defaultBucket: warehouse_sensors
+        secureJsonData:
+          token: ${INFLUXDB_TOKEN}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-prov
+  namespace: warehouse-system
+data:
+  dashboard.yaml: |
+    apiVersion: 1
+    providers:
+      - name: warehouse-dashboards
+        folder: Warehouse IoT
+        type: file
+        options:
+          path: /etc/grafana/provisioning/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-json
+  namespace: warehouse-system
+data:
+  # Reference dashboard file we wrote earlier
+  warehouse-overview.json: |
+    {
+      "title": "Warehouse IoT Overview",
+      "style": "dark",
+      "panels": []
+    }

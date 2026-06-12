@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: warehouse-dashboards
+    folder: Warehouse IoT
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

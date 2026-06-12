@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: warehouse-iot
+  namespace: argocd
+spec:
+  description: "AWS IoT Smart Warehouse Management System project"
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: warehouse-staging
+      server: https://kubernetes.default.svc
+    - namespace: warehouse-system
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

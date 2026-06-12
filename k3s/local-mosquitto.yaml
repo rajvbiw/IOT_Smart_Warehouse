@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-mosquitto
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: local-mosquitto
+  template:
+    metadata:
+      labels:
+        app: local-mosquitto
+    spec:
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2
+          ports:
+            - containerPort: 1883
+          volumeMounts:
+            - name: config
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf
+            - name: certs
+              mountPath: /certs
+      volumes:
+        - name: config
+          configMap:
+            name: local-mosquitto-config
+        - name: certs
+          secret:
+            secretName: aws-iot-certs
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-mosquitto-config
+  namespace: default
+data:
+  mosquitto.conf: |
+    persistence true
+    persistence_location /mosquitto/data/
+    log_dest stdout
+    allow_anonymous true
+    listener 1883
+
+    # AWS IoT Core Bridge Setup
+    connection aws-iot-bridge
+    address IOT_ENDPOINT:8883
+    bridge_cafile /certs/AmazonRootCA1.pem
+    bridge_certfile /certs/certificate.pem.crt
+    bridge_keyfile /certs/private.pem.key
+    topic warehouse/# out 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-mosquitto
+  namespace: default
+spec:
+  ports:
+    - port: 1883
+  selector:
+    app: local-mosquitto

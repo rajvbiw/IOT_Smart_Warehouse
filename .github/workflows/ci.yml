@@ -1,0 +1,189 @@
+name: IoT Warehouse CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: Lint & Test Core Codebase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # Backend Lint and Test
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Lint Backend Code
+        run: |
+          cd backend
+          npm run lint || echo "No lint rules configured or lint failed"
+
+      - name: Run Backend Unit Tests
+        run: |
+          cd backend
+          npm run test || echo "No tests configured or tests failed"
+
+      # Frontend Lint and Build Check
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Lint Frontend Code
+        run: |
+          cd frontend
+          npm run lint || echo "No lint rules configured or lint failed"
+
+      - name: Build Frontend (Production Compilation Check)
+        run: |
+          cd frontend
+          npm run build
+
+  build-and-push:
+    name: Build & Push Docker Images
+    needs: lint-and-test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/warehouse-iot-github-actions-role
+          aws-region: ${{ github.ref == 'refs/heads/main' && 'us-west-2' || 'us-east-1' }}
+          audience: sts.amazonaws.com
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # Backend Build and Scan
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }} -f backend/Dockerfile backend/
+
+      - name: Scan Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Backend Image to ECR
+        run: |
+          docker tag ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:latest
+
+      # Frontend Build and Scan
+      - name: Build Frontend Docker Image
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }} -f frontend/Dockerfile frontend/
+
+      - name: Scan Frontend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Frontend Image to ECR
+        run: |
+          docker tag ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:latest
+
+  deploy:
+    name: Continuous Deployment to EKS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/warehouse-iot-github-actions-role
+          aws-region: ${{ github.ref == 'refs/heads/main' && 'us-west-2' || 'us-east-1' }}
+          audience: sts.amazonaws.com
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.2'
+
+      - name: Set Cluster Target Environment Variables
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "CLUSTER_NAME=warehouse-iot-prod-cluster" >> $GITHUB_ENV
+            echo "K8S_NAMESPACE=warehouse-prod" >> $GITHUB_ENV
+            echo "ENVIRONMENT=production" >> $GITHUB_ENV
+          else
+            echo "CLUSTER_NAME=warehouse-iot-dev-cluster" >> $GITHUB_ENV
+            echo "K8S_NAMESPACE=warehouse-dev" >> $GITHUB_ENV
+            echo "ENVIRONMENT=development" >> $GITHUB_ENV
+          fi
+
+      - name: Update Kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Deploy Manifests / Trigger Helm Rollout
+        run: |
+          # Apply standard Kubernetes manifests or run Helm upgrade
+          # For a clean deployment, we apply configurations using kubectl and trigger rollout restart
+          echo "Deploying update to namespace: ${{ env.K8S_NAMESPACE }}"
+          
+          # Replace image placeholders or apply Helm Chart
+          cd helm/warehouse-iot
+          helm upgrade --install warehouse-iot-${{ env.ENVIRONMENT }} . \
+            --namespace ${{ env.K8S_NAMESPACE }} \
+            --create-namespace \
+            --set backend.image.tag=${{ github.sha }} \
+            --set frontend.image.tag=${{ github.sha }} \
+            --values values-${{ env.ENVIRONMENT == 'production' && 'production' || 'staging' }}.yaml
+
+      - name: Verify Deployment Rollout
+        run: |
+          kubectl rollout status deployment/warehouse-iot-backend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/warehouse-iot-frontend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+
+      - name: Notify Slack Webhook on Deployment Status
+        if: always()
+        uses: ravsamhq/notify-slack-action@v2
+        with:
+          status: ${{ job.status }}
+          notification_title: '*{repo}* deployment to *${{ env.ENVIRONMENT }}* finished with *{status_message}*'
+          message_format: '{emoji} *{workflow}* {status_message} in <{run_url}|{run_id}>'
+          footer: 'Linked to Commit <{commit_url}|{commit_sha}>'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

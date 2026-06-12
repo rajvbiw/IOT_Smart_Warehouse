@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge-processor
+  namespace: default
+  labels:
+    app: edge-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edge-processor
+  template:
+    metadata:
+      labels:
+        app: edge-processor
+    spec:
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/hostname: edge-node-01
+      containers:
+        - name: edge-processor
+          image: AWS_ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/warehouse-iot-backend:latest
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          env:
+            - name: EDGE_MODE
+              value: "true"
+            - name: LOCAL_INFLUX_URL
+              value: "http://localhost:8086"
+            - name: CLOUD_SYNC_ENABLED
+              value: "true"
+            - name: MQTT_BROKER_URL
+              value: "mqtt://localhost:1883"
+            - name: INFLUX_TOKEN
+              value: "admin-token-12345"
+            - name: INFLUX_ORG
+              value: "warehouse-org"
+            - name: INFLUX_BUCKET
+              value: "warehouse_sensors"
+            - name: SIMULATE_DEVICES
+              value: "false"

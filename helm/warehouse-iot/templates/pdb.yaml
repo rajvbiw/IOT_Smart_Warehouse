@@ -1,0 +1,25 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-backend-pdb
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "warehouse-iot.selectorLabels" . | nindent 6 }}
+      app: backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-frontend-pdb
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "warehouse-iot.selectorLabels" . | nindent 6 }}
+      app: frontend

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-influxdb
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+    app: influxdb
+spec:
+  serviceName: influxdb
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "warehouse-iot.selectorLabels" . | nindent 6 }}
+      app: influxdb
+  template:
+    metadata:
+      labels:
+        {{- include "warehouse-iot.selectorLabels" . | nindent 8 }}
+        app: influxdb
+    spec:
+      containers:
+        - name: influxdb
+          image: influxdb:2.7
+          ports:
+            - containerPort: 8086
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          envFrom:
+            - configMapRef:
+                name: {{ include "warehouse-iot.fullname" . }}-config
+            - secretRef:
+                name: {{ include "warehouse-iot.fullname" . }}-secret
+          volumeMounts:
+            - name: influxdb-storage
+              mountPath: /var/lib/influxdb2
+  volumeClaimTemplates:
+    - metadata:
+        name: influxdb-storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 50Gi

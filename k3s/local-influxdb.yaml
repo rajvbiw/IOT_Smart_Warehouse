@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: local-influxdb
+  namespace: default
+spec:
+  serviceName: local-influxdb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: local-influxdb
+  template:
+    metadata:
+      labels:
+        app: local-influxdb
+    spec:
+      containers:
+        - name: influxdb
+          image: influxdb:2.7
+          ports:
+            - containerPort: 8086
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/influxdb2
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-influxdb
+  namespace: default
+spec:
+  ports:
+    - port: 8086
+  selector:
+    app: local-influxdb
