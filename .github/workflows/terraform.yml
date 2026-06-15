@@ -121,7 +121,7 @@ jobs:
           terraform plan -no-color -input=false
 
       - name: Terraform Apply
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
         run: |
           cd ${{ env.TF_DIR }}
           terraform apply -auto-approve -input=false
