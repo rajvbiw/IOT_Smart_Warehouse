@@ -27,27 +27,27 @@ resource "aws_security_group" "rds" {
 }
 
 resource "aws_db_instance" "mysql" {
-  identifier                  = "${var.project_name}-mysql"
-  allocated_storage           = 20
-  max_allocated_storage       = 100
-  storage_type                = "gp3"
-  engine                      = "mysql"
-  engine_version              = "8.0"
-  instance_class              = var.instance_class
-  db_name                     = "warehouse_iot"
-  username                    = "root"
-  password                    = "password" # placeholder, changed in prod
-  parameter_group_name        = "default.mysql8.0"
-  db_subnet_group_name        = aws_db_subnet_group.rds.name
-  vpc_security_group_ids      = [aws_security_group.rds.id]
-  publicly_accessible         = false
-  skip_final_snapshot         = true
-  storage_encrypted           = true
-  multi_az                    = false
-  backup_retention_period     = 7
-  deletion_protection         = false # false for easy test, true in dev-override
+  identifier              = "${var.project_name}-mysql"
+  allocated_storage       = 20
+  max_allocated_storage   = 100
+  storage_type            = "gp3"
+  engine                  = "mysql"
+  engine_version          = "8.0"
+  instance_class          = var.instance_class
+  db_name                 = "warehouse_iot"
+  username                = "root"
+  password                = "password" # placeholder, changed in prod
+  parameter_group_name    = "default.mysql8.0"
+  db_subnet_group_name    = aws_db_subnet_group.rds.name
+  vpc_security_group_ids  = [aws_security_group.rds.id]
+  publicly_accessible     = false
+  skip_final_snapshot     = true
+  storage_encrypted       = true
+  multi_az                = false
+  backup_retention_period = 0
+  deletion_protection     = false # false for easy test, true in dev-override
 
-  performance_insights_enabled = true
+  performance_insights_enabled    = false
   enabled_cloudwatch_logs_exports = ["error", "general", "slowquery"]
 
   tags = {

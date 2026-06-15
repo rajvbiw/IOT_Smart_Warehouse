@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -62,18 +63,41 @@ jobs:
   build-and-push:
     name: Build & Push Docker Images
     needs: lint-and-test
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
+    env:
+      HAS_AWS_KEYS: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Configure AWS Credentials
+      - name: Set Environment Variables
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "PROJECT_NAME=warehouse-iot-prod" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+          else
+            echo "PROJECT_NAME=warehouse-iot-dev" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+          fi
+
+      - name: Configure AWS Credentials via OIDC
+        if: env.HAS_AWS_KEYS == 'false'
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/warehouse-iot-github-actions-role
-          aws-region: ${{ github.ref == 'refs/heads/main' && 'us-west-2' || 'us-east-1' }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
           audience: sts.amazonaws.com
+
+      - name: Configure AWS Credentials via Access Keys
+        if: env.HAS_AWS_KEYS == 'true'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Log in to Amazon ECR
         id: login-ecr
@@ -82,12 +106,12 @@ jobs:
       # Backend Build and Scan
       - name: Build Backend Docker Image
         run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }} -f backend/Dockerfile backend/
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ github.sha }} -f backend/Dockerfile backend/
 
       - name: Scan Backend Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ github.sha }}
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
@@ -96,19 +120,19 @@ jobs:
 
       - name: Push Backend Image to ECR
         run: |
-          docker tag ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:latest
-          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:latest
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:latest
 
       # Frontend Build and Scan
       - name: Build Frontend Docker Image
         run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }} -f frontend/Dockerfile frontend/
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ github.sha }} -f frontend/Dockerfile frontend/
 
       - name: Scan Frontend Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ github.sha }}
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
@@ -117,29 +141,20 @@ jobs:
 
       - name: Push Frontend Image to ECR
         run: |
-          docker tag ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:latest
-          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:latest
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:latest
 
   deploy:
     name: Continuous Deployment to EKS
     needs: build-and-push
     runs-on: ubuntu-latest
+    env:
+      HAS_AWS_KEYS: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+      HAS_SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/warehouse-iot-github-actions-role
-          aws-region: ${{ github.ref == 'refs/heads/main' && 'us-west-2' || 'us-east-1' }}
-          audience: sts.amazonaws.com
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'v1.28.2'
 
       - name: Set Cluster Target Environment Variables
         run: |
@@ -147,11 +162,38 @@ jobs:
             echo "CLUSTER_NAME=warehouse-iot-prod-cluster" >> $GITHUB_ENV
             echo "K8S_NAMESPACE=warehouse-prod" >> $GITHUB_ENV
             echo "ENVIRONMENT=production" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+            echo "PROJECT_NAME=warehouse-iot-prod" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
           else
             echo "CLUSTER_NAME=warehouse-iot-dev-cluster" >> $GITHUB_ENV
             echo "K8S_NAMESPACE=warehouse-dev" >> $GITHUB_ENV
             echo "ENVIRONMENT=development" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+            echo "PROJECT_NAME=warehouse-iot-dev" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
           fi
+
+      - name: Configure AWS Credentials via OIDC
+        if: env.HAS_AWS_KEYS == 'false'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Configure AWS Credentials via Access Keys
+        if: env.HAS_AWS_KEYS == 'true'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.2'
 
       - name: Update Kubeconfig
         run: |
@@ -168,17 +210,20 @@ jobs:
           helm upgrade --install warehouse-iot-${{ env.ENVIRONMENT }} . \
             --namespace ${{ env.K8S_NAMESPACE }} \
             --create-namespace \
-            --set backend.image.tag=${{ github.sha }} \
-            --set frontend.image.tag=${{ github.sha }} \
+            --set image.backend.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-backend \
+            --set image.backend.tag=${{ github.sha }} \
+            --set image.frontend.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-frontend \
+            --set image.frontend.tag=${{ github.sha }} \
             --values values-${{ env.ENVIRONMENT == 'production' && 'production' || 'staging' }}.yaml
+
 
       - name: Verify Deployment Rollout
         run: |
-          kubectl rollout status deployment/warehouse-iot-backend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
-          kubectl rollout status deployment/warehouse-iot-frontend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/warehouse-iot-${{ env.ENVIRONMENT }}-backend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/warehouse-iot-${{ env.ENVIRONMENT }}-frontend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
 
       - name: Notify Slack Webhook on Deployment Status
-        if: always()
+        if: always() && env.HAS_SLACK_WEBHOOK == 'true'
         uses: ravsamhq/notify-slack-action@v2
         with:
           status: ${{ job.status }}

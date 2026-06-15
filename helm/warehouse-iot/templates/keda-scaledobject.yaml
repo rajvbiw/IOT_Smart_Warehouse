@@ -1,3 +1,4 @@
+{{- if .Values.keda.enabled }}
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -19,3 +20,4 @@ spec:
         queueURL: {{ .Values.aws.sqsQueueUrl | quote }}
         queueLength: "100"
         awsRegion: {{ .Values.aws.region | quote }}
+{{- end }}

@@ -1,4 +1,5 @@
 resource "aws_acm_certificate" "cert" {
+  count             = (var.domain_name == "" || length(regexall("example.com", var.domain_name)) > 0) ? 0 : 1
   domain_name       = var.domain_name
   validation_method = "DNS"
 
@@ -18,4 +19,4 @@ resource "aws_acm_certificate" "cert" {
 variable "project_name" {}
 variable "domain_name" {}
 
-output "certificate_arn" { value = aws_acm_certificate.cert.arn }
+output "certificate_arn" { value = length(aws_acm_certificate.cert) > 0 ? aws_acm_certificate.cert[0].arn : "" }

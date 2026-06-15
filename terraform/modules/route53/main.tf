@@ -1,9 +1,11 @@
 resource "aws_route53_zone" "primary" {
-  name = var.domain_name
+  count = (var.domain_name == "" || length(regexall("example.com", var.domain_name)) > 0) ? 0 : 1
+  name  = var.domain_name
 }
 
 resource "aws_route53_record" "apex" {
-  zone_id = aws_route53_zone.primary.zone_id
+  count   = (var.domain_name == "" || length(regexall("example.com", var.domain_name)) > 0) ? 0 : 1
+  zone_id = aws_route53_zone.primary[0].zone_id
   name    = var.domain_name
   type    = "A"
 
@@ -15,7 +17,8 @@ resource "aws_route53_record" "apex" {
 }
 
 resource "aws_route53_record" "wildcard" {
-  zone_id = aws_route53_zone.primary.zone_id
+  count   = (var.domain_name == "" || length(regexall("example.com", var.domain_name)) > 0) ? 0 : 1
+  zone_id = aws_route53_zone.primary[0].zone_id
   name    = "*.${var.domain_name}"
   type    = "A"
 
@@ -27,8 +30,8 @@ resource "aws_route53_record" "wildcard" {
 }
 
 variable "domain_name" {}
-variable "alb_dns_name" { default = "dummy-alb-12345.us-east-1.elb.amazonaws.com" }
+variable "alb_dns_name" { default = "dummy-alb-12345.ap-south-1.elb.amazonaws.com" }
 variable "alb_zone_id" { default = "Z35SXDOTRQ7X7K" }
 
-output "zone_id" { value = aws_route53_zone.primary.zone_id }
-output "name_servers" { value = aws_route53_zone.primary.name_servers }
+output "zone_id" { value = length(aws_route53_zone.primary) > 0 ? aws_route53_zone.primary[0].zone_id : "" }
+output "name_servers" { value = length(aws_route53_zone.primary) > 0 ? aws_route53_zone.primary[0].name_servers : [] }

@@ -31,7 +31,7 @@ resource "aws_secretsmanager_secret" "redis_password" {
 
 resource "aws_secretsmanager_secret_version" "redis_password" {
   secret_id     = aws_secretsmanager_secret.redis_password.id
-  secret_string = ""
+  secret_string = "CHANGE_ME"
 }
 
 output "db_password_arn" { value = aws_secretsmanager_secret.db_password.arn }

@@ -9,6 +9,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "reports" {
     id     = "archive"
     status = "Enabled"
 
+    filter {}
+
     transition {
       days          = 30
       storage_class = "STANDARD_IA"
@@ -54,6 +56,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_telemetry" {
   rule {
     id     = "retention"
     status = "Enabled"
+    filter {}
     expiration {
       days = 30
     }
