@@ -14,24 +14,38 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Terraform Action to perform'
+        description: "Terraform action to run"
         required: true
-        default: 'apply'
+        default: "plan"
         type: choice
         options:
+          - plan
           - apply
           - destroy
+          - force-unlock
+      lock_id:
+        description: "Lock ID to release (required for force-unlock)"
+        required: false
+        type: string
 
 permissions:
   id-token: write
   contents: read
 
+env:
+  HAS_AWS_KEYS: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+
 jobs:
-  terraform:
-    name: Terraform Plan & Apply
+  # ==========================================
+  # JOB 1: Terraform Plan
+  # ==========================================
+  terraform-plan:
+    name: 📋 Terraform Plan
     runs-on: ubuntu-latest
-    env:
-      HAS_AWS_KEYS: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+    if: |
+      github.event_name == 'push' || 
+      github.event_name == 'pull_request' || 
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply'))
     
     steps:
       - name: Checkout Code
@@ -127,20 +141,196 @@ jobs:
       - name: Terraform Plan
         run: |
           cd ${{ env.TF_DIR }}
-          if [ "${{ github.event.inputs.action }}" = "destroy" ]; then
-            terraform plan -destroy -no-color -input=false
-          else
-            terraform plan -no-color -input=false
-          fi
+          terraform plan -no-color -input=false -out=tfplan
 
-      - name: Terraform Apply
-        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
+      - name: Save plan output
         run: |
           cd ${{ env.TF_DIR }}
-          terraform apply -auto-approve -input=false
+          terraform show -no-color tfplan > plan_output.txt
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan
+          path: |
+            ${{ env.TF_DIR }}/tfplan
+            ${{ env.TF_DIR }}/plan_output.txt
+
+  # ==========================================
+  # JOB 2: Terraform Apply
+  # ==========================================
+  terraform-apply:
+    name: 🚀 Terraform Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Environment Variables
+        run: |
+          if [ "${{ github.base_ref || github.ref_name }}" = "main" ]; then
+            echo "TF_DIR=terraform/environments/prod" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
+          else
+            echo "TF_DIR=terraform/environments/dev" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
+          fi
+
+      - name: Configure AWS Credentials via OIDC
+        if: env.HAS_AWS_KEYS == 'false'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Configure AWS Credentials via Access Keys
+        if: env.HAS_AWS_KEYS == 'true'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init
+        run: |
+          cd ${{ env.TF_DIR }}
+          terraform init
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan
+          path: ${{ env.TF_DIR }}
+
+      - name: Terraform Apply
+        run: |
+          cd ${{ env.TF_DIR }}
+          terraform apply -auto-approve tfplan
+
+  # ==========================================
+  # JOB 3: Terraform Destroy (Manual Only)
+  # ==========================================
+  terraform-destroy:
+    name: 💥 Terraform Destroy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Environment Variables
+        run: |
+          if [ "${{ github.base_ref || github.ref_name }}" = "main" ]; then
+            echo "TF_DIR=terraform/environments/prod" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
+          else
+            echo "TF_DIR=terraform/environments/dev" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
+          fi
+
+      - name: Configure AWS Credentials via OIDC
+        if: env.HAS_AWS_KEYS == 'false'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Configure AWS Credentials via Access Keys
+        if: env.HAS_AWS_KEYS == 'true'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init
+        run: |
+          cd ${{ env.TF_DIR }}
+          terraform init
 
       - name: Terraform Destroy
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
         run: |
           cd ${{ env.TF_DIR }}
           terraform destroy -auto-approve -input=false
+
+  # ==========================================
+  # JOB 4: Terraform Force Unlock (Manual Only)
+  # ==========================================
+  terraform-force-unlock:
+    name: 🔓 Terraform Force Unlock
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'force-unlock'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Environment Variables
+        run: |
+          if [ "${{ github.base_ref || github.ref_name }}" = "main" ]; then
+            echo "TF_DIR=terraform/environments/prod" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
+          else
+            echo "TF_DIR=terraform/environments/dev" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
+          fi
+
+      - name: Configure AWS Credentials via OIDC
+        if: env.HAS_AWS_KEYS == 'false'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Configure AWS Credentials via Access Keys
+        if: env.HAS_AWS_KEYS == 'true'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init
+        run: |
+          cd ${{ env.TF_DIR }}
+          terraform init
+
+      - name: Release State Lock
+        run: |
+          cd ${{ env.TF_DIR }}
+          if [ -n "${{ github.event.inputs.lock_id }}" ]; then
+            terraform force-unlock -force ${{ github.event.inputs.lock_id }}
+          else
+            echo "Error: lock_id input is required for force-unlock!"
+            exit 1
+          fi
