@@ -8,22 +8,22 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "warehouse-iot-tf-state-dev"
+    bucket         = "warehouse-iot-tf-state-ap-south-1-dev"
     key            = "dev/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "warehouse-iot-tf-locks-dev"
+    region         = "ap-south-1"
+    dynamodb_table = "warehouse-iot-tf-locks-ap-south-1-dev"
     encrypt        = true
   }
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = "ap-south-1"
 }
 
 module "root" {
   source = "../../"
 
-  aws_region             = "us-east-1"
+  aws_region             = "ap-south-1"
   environment            = "dev"
   project_name           = "warehouse-iot-dev"
   eks_node_instance_type = "t3.medium"

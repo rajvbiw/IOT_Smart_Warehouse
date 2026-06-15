@@ -32,11 +32,11 @@ jobs:
         run: |
           if [ "${{ github.base_ref || github.ref_name }}" = "main" ]; then
             echo "TF_DIR=terraform/environments/prod" >> $GITHUB_ENV
-            echo "AWS_REGION=us-west-2" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
             echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
           else
             echo "TF_DIR=terraform/environments/dev" >> $GITHUB_ENV
-            echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
             echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
           fi
 
@@ -59,11 +59,11 @@ jobs:
       - name: Bootstrap S3 Backend & DynamoDB Table
         run: |
           if [ "${{ env.TF_DIR }}" = "terraform/environments/prod" ]; then
-            BUCKET_NAME="warehouse-iot-tf-state-prod"
-            DYNAMODB_TABLE="warehouse-iot-tf-locks-prod"
+            BUCKET_NAME="warehouse-iot-tf-state-ap-south-1-prod"
+            DYNAMODB_TABLE="warehouse-iot-tf-locks-ap-south-1-prod"
           else
-            BUCKET_NAME="warehouse-iot-tf-state-dev"
-            DYNAMODB_TABLE="warehouse-iot-tf-locks-dev"
+            BUCKET_NAME="warehouse-iot-tf-state-ap-south-1-dev"
+            DYNAMODB_TABLE="warehouse-iot-tf-locks-ap-south-1-dev"
           fi
 
           echo "Bootstrapping backend for bucket: $BUCKET_NAME and table: $DYNAMODB_TABLE in region ${{ env.AWS_REGION }}"

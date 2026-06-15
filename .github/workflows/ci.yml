@@ -76,11 +76,11 @@ jobs:
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "PROJECT_NAME=warehouse-iot-prod" >> $GITHUB_ENV
             echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
-            echo "AWS_REGION=us-west-2" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
           else
             echo "PROJECT_NAME=warehouse-iot-dev" >> $GITHUB_ENV
             echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
-            echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
           fi
 
       - name: Configure AWS Credentials via OIDC
@@ -162,14 +162,14 @@ jobs:
             echo "CLUSTER_NAME=warehouse-iot-prod-cluster" >> $GITHUB_ENV
             echo "K8S_NAMESPACE=warehouse-prod" >> $GITHUB_ENV
             echo "ENVIRONMENT=production" >> $GITHUB_ENV
-            echo "AWS_REGION=us-west-2" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
             echo "PROJECT_NAME=warehouse-iot-prod" >> $GITHUB_ENV
             echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
           else
             echo "CLUSTER_NAME=warehouse-iot-dev-cluster" >> $GITHUB_ENV
             echo "K8S_NAMESPACE=warehouse-dev" >> $GITHUB_ENV
             echo "ENVIRONMENT=development" >> $GITHUB_ENV
-            echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
+            echo "AWS_REGION=ap-south-1" >> $GITHUB_ENV
             echo "PROJECT_NAME=warehouse-iot-dev" >> $GITHUB_ENV
             echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
           fi

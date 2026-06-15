@@ -17,4 +17,4 @@ spec:
       metadata:
         queueURL: SQS_QUEUE_URL
         queueLength: "100"
-        awsRegion: us-east-1
+        awsRegion: ap-south-1

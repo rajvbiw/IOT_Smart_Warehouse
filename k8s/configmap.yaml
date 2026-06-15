@@ -14,7 +14,7 @@ data:
   INFLUX_ORG: "warehouse-org"
   INFLUX_BUCKET: "warehouse_sensors"
   MQTT_BROKER_URL: "mqtt://mosquitto:1883"
-  AWS_REGION: "us-east-1"
+  AWS_REGION: "ap-south-1"
   AWS_IOT_ENDPOINT: "IOT_ENDPOINT_PLACEHOLDER"
   SQS_QUEUE_URL: "SQS_QUEUE_URL_PLACEHOLDER"
   S3_BUCKET: "warehouse-iot-reports"

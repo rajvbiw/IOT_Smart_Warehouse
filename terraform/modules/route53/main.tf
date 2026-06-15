@@ -30,7 +30,7 @@ resource "aws_route53_record" "wildcard" {
 }
 
 variable "domain_name" {}
-variable "alb_dns_name" { default = "dummy-alb-12345.us-east-1.elb.amazonaws.com" }
+variable "alb_dns_name" { default = "dummy-alb-12345.ap-south-1.elb.amazonaws.com" }
 variable "alb_zone_id" { default = "Z35SXDOTRQ7X7K" }
 
 output "zone_id" { value = length(aws_route53_zone.primary) > 0 ? aws_route53_zone.primary[0].zone_id : "" }
