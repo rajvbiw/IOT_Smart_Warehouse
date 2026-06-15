@@ -70,7 +70,9 @@ module "iam" {
   reports_bucket       = module.s3.reports_bucket_name
   raw_telemetry_bucket = module.s3.raw_telemetry_bucket_name
   sqs_queue_arn        = module.sqs.queue_arn
+  github_repository    = var.github_repository
 }
+
 
 module "lambda" {
   source        = "./modules/lambda"
@@ -103,8 +105,8 @@ module "cloudfront" {
 }
 
 module "route53" {
-  source       = "./modules/route53"
-  domain_name  = var.domain_name
+  source      = "./modules/route53"
+  domain_name = var.domain_name
   # In a production layout, these default values are overridden with the actual ALB DNS records
   # and ALB Route53 Hosted Zone ID created inside the Kubernetes ingress controller.
   # For static definition, we reference placeholders or variables.

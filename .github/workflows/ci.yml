@@ -71,7 +71,9 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/warehouse-iot-github-actions-role
+          role-to-assume: ${{ (secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '') && format('arn:aws:iam::{0}:role/{1}', secrets.AWS_ACCOUNT_ID, github.ref == 'refs/heads/main' && 'warehouse-iot-prod-github-actions-role' || 'warehouse-iot-dev-github-actions-role') || '' }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ github.ref == 'refs/heads/main' && 'us-west-2' || 'us-east-1' }}
           audience: sts.amazonaws.com
 
@@ -132,7 +134,9 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/warehouse-iot-github-actions-role
+          role-to-assume: ${{ (secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '') && format('arn:aws:iam::{0}:role/{1}', secrets.AWS_ACCOUNT_ID, github.ref == 'refs/heads/main' && 'warehouse-iot-prod-github-actions-role' || 'warehouse-iot-dev-github-actions-role') || '' }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ github.ref == 'refs/heads/main' && 'us-west-2' || 'us-east-1' }}
           audience: sts.amazonaws.com
 
@@ -168,9 +172,12 @@ jobs:
           helm upgrade --install warehouse-iot-${{ env.ENVIRONMENT }} . \
             --namespace ${{ env.K8S_NAMESPACE }} \
             --create-namespace \
-            --set backend.image.tag=${{ github.sha }} \
-            --set frontend.image.tag=${{ github.sha }} \
+            --set image.backend.repository=${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend \
+            --set image.backend.tag=${{ github.sha }} \
+            --set image.frontend.repository=${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend \
+            --set image.frontend.tag=${{ github.sha }} \
             --values values-${{ env.ENVIRONMENT == 'production' && 'production' || 'staging' }}.yaml
+
 
       - name: Verify Deployment Rollout
         run: |

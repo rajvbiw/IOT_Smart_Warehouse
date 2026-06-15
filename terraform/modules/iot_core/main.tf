@@ -41,9 +41,9 @@ resource "aws_iot_thing_principal_attachment" "attachments" {
 }
 
 resource "aws_iot_policy_attachment" "policy_attachments" {
-  count     = var.device_count
-  policy    = aws_iot_policy.device.name
-  principal = aws_iot_certificate.certs[count.index].arn
+  count  = var.device_count
+  policy = aws_iot_policy.device.name
+  target = aws_iot_certificate.certs[count.index].arn
 }
 
 resource "aws_iot_topic_rule" "rule" {
@@ -65,7 +65,7 @@ resource "aws_iot_topic_rule" "rule" {
 
   s3 {
     bucket_name = var.raw_telemetry_bucket_name
-    key         = "telemetry/\${topic()}/\${timestamp()}.json"
+    key         = "telemetry/$${topic()}/$${timestamp()}.json"
     role_arn    = var.iot_role_arn
   }
 }

@@ -81,30 +81,41 @@ resource "aws_iam_role_policy_attachment" "pod_attach" {
   role       = aws_iam_role.pod_role.name
 }
 
+data "aws_caller_identity" "current" {}
+
+data "tls_certificate" "github" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
+}
+
 # GitHub Actions OIDC Role
 resource "aws_iam_role" "github_actions" {
   name = "${var.project_name}-github-actions-role"
 
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/warehouse-iot:*"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:*"
+          }
         }
       }
-    }
-  ]
+    ]
+  })
 }
-EOF
-}
+
 
 resource "aws_iam_policy" "github_policy" {
   name = "${var.project_name}-github-policy"
@@ -194,6 +205,8 @@ variable "oidc_issuer" {}
 variable "reports_bucket" {}
 variable "raw_telemetry_bucket" {}
 variable "sqs_queue_arn" {}
+variable "github_repository" {}
+
 
 output "pod_role_arn" { value = aws_iam_role.pod_role.arn }
 output "github_role_arn" { value = aws_iam_role.github_actions.arn }

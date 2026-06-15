@@ -60,3 +60,10 @@ variable "iot_device_count" {
   type        = number
   default     = 24
 }
+
+variable "github_repository" {
+  description = "The target GitHub repository in the format owner/repo-name for OIDC trust"
+  type        = string
+  default     = "rajvbiw/IOT_Smart_Warehouse"
+}
+
