@@ -47,19 +47,19 @@ app.get('/health', (req, res) => {
   return res.status(200).json({ status: 'ok', timestamp: new Date() });
 });
 
+// Track readiness state
+let isReady = false;
+
 // Readiness Check: Checks MySQL, Redis and InfluxDB connections
 app.get('/ready', async (req, res) => {
+  if (!isReady) {
+    return res.status(503).json({ status: 'not_ready', message: 'Services still initializing' });
+  }
   try {
-    // 1. MySQL check
     await sequelize.authenticate();
-
-    // 2. Redis check
     await redisService.getClient().ping();
-
-    // 3. InfluxDB check
     const query = `buckets()`;
     await influxService.query(query);
-
     return res.status(200).json({
       status: 'ready',
       database: 'connected',
@@ -67,7 +67,7 @@ app.get('/ready', async (req, res) => {
       timeseries: 'connected',
     });
   } catch (err: any) {
-    console.error('Readiness probe failed:', err);
+    console.error('Readiness probe failed:', err.message);
     return res.status(500).json({
       status: 'error',
       message: err.message || 'Services unhealthy',
@@ -95,8 +95,6 @@ cron.schedule('*/30 * * * * *', async () => {
     for (const dev of offlineDevices) {
       await dev.update({ status: 'offline' });
       console.log(`[Heartbeat Cron] Device marked OFFLINE: ${dev.device_uid}`);
-
-      // Emit real-time status change socket event
       socketService.emitToWarehouse(dev.warehouse_id, 'device_status_change', {
         device_uid: dev.device_uid,
         status: 'offline',
@@ -104,48 +102,71 @@ cron.schedule('*/30 * * * * *', async () => {
       });
     }
 
-    // Compile dynamic real-time metrics overview counts
     const warehouses = [1, 2];
     for (const wId of warehouses) {
       const devices = await Device.findAll({ where: { warehouse_id: wId } });
       const online_count = devices.filter((d) => d.status === 'online').length;
       const offline_count = devices.filter((d) => d.status === 'offline').length;
-
-      socketService.emitToWarehouse(wId, 'heartbeat', {
-        online_count,
-        offline_count,
-        timestamp: new Date(),
-      });
+      socketService.emitToWarehouse(wId, 'heartbeat', { online_count, offline_count, timestamp: new Date() });
     }
-
   } catch (err) {
     console.error('Heartbeat check cron job failed:', err);
   }
 });
 
-// Bootstrapping the entire application
-async function bootstrap() {
-  try {
-    // 1. Sync MySQL tables
-    await sequelize.sync();
-    console.log('MySQL Database synchronized.');
-
-    // 2. Start MQTT Subscriber Processor
-    mqttProcessor.connect();
-
-    // 3. Start Telemetry Simulator if enabled (defaults to true for dev mode)
-    if (process.env.SIMULATE_DEVICES !== 'false') {
-      telemetrySimulator.start();
+// Retry helper
+async function retryAsync(fn: () => Promise<void>, name: string, retries = 10, delayMs = 5000): Promise<void> {
+  for (let i = 1; i <= retries; i++) {
+    try {
+      await fn();
+      console.log(`[Bootstrap] ${name} connected successfully.`);
+      return;
+    } catch (err: any) {
+      console.error(`[Bootstrap] ${name} attempt ${i}/${retries} failed: ${err.message}`);
+      if (i < retries) await new Promise(r => setTimeout(r, delayMs));
     }
-
-    // 4. Start HTTP Express Server
-    httpServer.listen(PORT, () => {
-      console.log(`Smart Warehouse REST & WebSocket Server running on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error('Failed to bootstrap warehouse server:', err);
-    process.exit(1);
   }
+  throw new Error(`[Bootstrap] ${name} failed after ${retries} retries.`);
 }
 
-bootstrap();
+// Bootstrapping the entire application
+async function bootstrap() {
+  // 1. Start HTTP server FIRST so liveness probe passes immediately
+  await new Promise<void>((resolve) => {
+    httpServer.listen(PORT, () => {
+      console.log(`Smart Warehouse REST & WebSocket Server running on port ${PORT}`);
+      resolve();
+    });
+  });
+
+  // 2. Connect to MySQL with retries (non-blocking startup)
+  try {
+    await retryAsync(async () => {
+      await sequelize.authenticate();
+      console.log('DB_HOST =', process.env.DB_HOST);
+      await sequelize.sync();
+      console.log('MySQL Database synchronized.');
+    }, 'MySQL', 12, 5000);
+  } catch (err) {
+    console.error('[Bootstrap] MySQL connection permanently failed. Check DB_HOST and credentials.');
+    // Don't exit - keep server running so probe works, but mark not ready
+    return;
+  }
+
+  // 3. Start MQTT Subscriber Processor
+  mqttProcessor.connect();
+
+  // 4. Start Telemetry Simulator if enabled
+  if (process.env.SIMULATE_DEVICES !== 'false') {
+    telemetrySimulator.start();
+  }
+
+  // 5. Mark service as ready
+  isReady = true;
+  console.log('[Bootstrap] All services ready!');
+}
+
+bootstrap().catch((err) => {
+  console.error('Unhandled bootstrap error:', err);
+  // Don't exit - keep server alive so Kubernetes can collect logs
+});
