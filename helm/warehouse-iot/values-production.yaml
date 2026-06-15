@@ -9,15 +9,15 @@ autoscaling:
 resources:
   backend:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 10m
+      memory: 32Mi
     limits:
       cpu: 500m
       memory: 256Mi
   frontend:
     requests:
-      cpu: 50m
-      memory: 64Mi
+      cpu: 10m
+      memory: 16Mi
     limits:
       cpu: 200m
       memory: 128Mi
@@ -25,8 +25,8 @@ resources:
 influx:
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 10m
+      memory: 64Mi
     limits:
       cpu: 500m
       memory: 512Mi
