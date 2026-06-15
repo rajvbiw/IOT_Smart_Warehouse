@@ -26,6 +26,7 @@ redis:
       memory: 128Mi
 
 influx:
+  url: http://warehouse-iot-production-influxdb:8086
   resources:
     requests:
       cpu: 10m

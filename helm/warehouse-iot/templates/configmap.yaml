@@ -14,6 +14,10 @@ data:
   INFLUX_URL: {{ .Values.influx.url | quote }}
   INFLUX_ORG: {{ .Values.influx.org | quote }}
   INFLUX_BUCKET: {{ .Values.influx.bucket | quote }}
+  DOCKER_INFLUXDB_INIT_MODE: "setup"
+  DOCKER_INFLUXDB_INIT_USERNAME: "admin"
+  DOCKER_INFLUXDB_INIT_ORG: {{ .Values.influx.org | quote }}
+  DOCKER_INFLUXDB_INIT_BUCKET: {{ .Values.influx.bucket | quote }}
   MQTT_BROKER_URL: "mqtt://{{ include "warehouse-iot.fullname" . }}-mosquitto:1883"
   AWS_REGION: {{ .Values.aws.region | quote }}
   AWS_IOT_ENDPOINT: {{ .Values.aws.iotEndpoint | quote }}
