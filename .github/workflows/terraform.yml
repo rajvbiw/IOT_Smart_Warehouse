@@ -209,6 +209,11 @@ jobs:
           cd ${{ env.TF_DIR }}
           terraform init
 
+      - name: Recreate Lambda zip file
+        run: |
+          cd terraform/modules/lambda/src
+          zip lambda.zip index.js
+
       - name: Download plan artifact
         uses: actions/download-artifact@v4
         with:

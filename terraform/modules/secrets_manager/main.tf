@@ -1,5 +1,6 @@
 resource "aws_secretsmanager_secret" "db_password" {
-  name = "warehouse-iot/db-password"
+  name                    = "warehouse-iot/db-password"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "db_password" {
@@ -8,7 +9,8 @@ resource "aws_secretsmanager_secret_version" "db_password" {
 }
 
 resource "aws_secretsmanager_secret" "jwt_secret" {
-  name = "warehouse-iot/jwt-secret"
+  name                    = "warehouse-iot/jwt-secret"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "jwt_secret" {
@@ -17,7 +19,8 @@ resource "aws_secretsmanager_secret_version" "jwt_secret" {
 }
 
 resource "aws_secretsmanager_secret" "influx_token" {
-  name = "warehouse-iot/influx-token"
+  name                    = "warehouse-iot/influx-token"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "influx_token" {
@@ -26,7 +29,8 @@ resource "aws_secretsmanager_secret_version" "influx_token" {
 }
 
 resource "aws_secretsmanager_secret" "redis_password" {
-  name = "warehouse-iot/redis-password"
+  name                    = "warehouse-iot/redis-password"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "redis_password" {
