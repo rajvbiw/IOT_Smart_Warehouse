@@ -59,11 +59,11 @@ jobs:
       - name: Bootstrap S3 Backend & DynamoDB Table
         run: |
           if [ "${{ env.TF_DIR }}" = "terraform/environments/prod" ]; then
-            BUCKET_NAME="warehouse-iot-tf-state-ap-south-1-prod"
-            DYNAMODB_TABLE="warehouse-iot-tf-locks-ap-south-1-prod"
+            BUCKET_NAME="warehouse-iot-tf-state-prod"
+            DYNAMODB_TABLE="warehouse-iot-tf-locks-prod"
           else
-            BUCKET_NAME="warehouse-iot-tf-state-ap-south-1-dev"
-            DYNAMODB_TABLE="warehouse-iot-tf-locks-ap-south-1-dev"
+            BUCKET_NAME="warehouse-iot-tf-state-dev"
+            DYNAMODB_TABLE="warehouse-iot-tf-locks-dev"
           fi
 
           echo "Bootstrapping backend for bucket: $BUCKET_NAME and table: $DYNAMODB_TABLE in region ${{ env.AWS_REGION }}"

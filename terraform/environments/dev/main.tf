@@ -8,10 +8,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "warehouse-iot-tf-state-ap-south-1-dev"
+    bucket         = "warehouse-iot-tf-state-dev"
     key            = "dev/terraform.tfstate"
-    region         = "ap-south-1"
-    dynamodb_table = "warehouse-iot-tf-locks-ap-south-1-dev"
+    region         = "us-east-1"
+    dynamodb_table = "warehouse-iot-tf-locks-dev"
     encrypt        = true
   }
 }
