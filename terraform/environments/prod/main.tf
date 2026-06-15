@@ -17,13 +17,13 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-west-2"
+  region = "ap-south-1"
 }
 
 module "root" {
   source = "../../"
 
-  aws_region             = "us-west-2"
+  aws_region             = "ap-south-1"
   environment            = "prod"
   project_name           = "warehouse-iot-prod"
   eks_node_instance_type = "c5.xlarge"
