@@ -47,7 +47,7 @@ resource "aws_db_instance" "mysql" {
   backup_retention_period = 0
   deletion_protection     = false # false for easy test, true in dev-override
 
-  performance_insights_enabled    = true
+  performance_insights_enabled    = false
   enabled_cloudwatch_logs_exports = ["error", "general", "slowquery"]
 
   tags = {

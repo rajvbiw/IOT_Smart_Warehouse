@@ -26,7 +26,7 @@ module "root" {
   aws_region             = "us-east-1"
   environment            = "dev"
   project_name           = "warehouse-iot-dev"
-  eks_node_instance_type = "t3.medium"
+  eks_node_instance_type = "t3.micro"
   eks_desired_nodes      = 2
   eks_min_nodes          = 1
   eks_max_nodes          = 3
