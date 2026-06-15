@@ -198,7 +198,7 @@ jobs:
           kubectl rollout status deployment/warehouse-iot-${{ env.ENVIRONMENT }}-frontend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
 
       - name: Notify Slack Webhook on Deployment Status
-        if: always()
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
         uses: ravsamhq/notify-slack-action@v2
         with:
           status: ${{ job.status }}
