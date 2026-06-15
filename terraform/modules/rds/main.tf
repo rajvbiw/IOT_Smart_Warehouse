@@ -44,7 +44,7 @@ resource "aws_db_instance" "mysql" {
   skip_final_snapshot     = true
   storage_encrypted       = true
   multi_az                = false
-  backup_retention_period = 7
+  backup_retention_period = 0
   deletion_protection     = false # false for easy test, true in dev-override
 
   performance_insights_enabled    = true
