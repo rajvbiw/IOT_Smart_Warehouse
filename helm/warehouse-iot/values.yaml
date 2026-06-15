@@ -29,6 +29,13 @@ influx:
   org: warehouse-org
   bucket: warehouse_sensors
   token: CHANGE_ME
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
 aws:
   region: ap-south-1

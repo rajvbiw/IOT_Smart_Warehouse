@@ -24,12 +24,7 @@ spec:
           ports:
             - containerPort: 8086
           resources:
-            requests:
-              cpu: 500m
-              memory: 1Gi
-            limits:
-              cpu: 1000m
-              memory: 2Gi
+            {{- toYaml .Values.influx.resources | nindent 12 }}
           envFrom:
             - configMapRef:
                 name: {{ include "warehouse-iot.fullname" . }}-config
