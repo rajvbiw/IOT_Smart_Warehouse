@@ -9,11 +9,6 @@ import {
 }
 
 import {
-  to = module.root.module.eks.aws_eks_node_group.this
-  id = "warehouse-iot-prod-cluster:warehouse-iot-prod-nodes"
-}
-
-import {
   to = module.root.module.eks.aws_eks_addon.cni
   id = "warehouse-iot-prod-cluster:vpc-cni"
 }
@@ -22,7 +17,6 @@ import {
   to = module.root.module.eks.aws_eks_addon.proxy
   id = "warehouse-iot-prod-cluster:kube-proxy"
 }
-
 
 import {
   to = module.root.module.eks.aws_iam_openid_connect_provider.this
@@ -37,11 +31,6 @@ import {
 import {
   to = module.root.module.iot_core.aws_iot_policy.device
   id = "warehouse-iot-prod-device-policy"
-}
-
-import {
-  to = module.root.module.rds.aws_db_subnet_group.rds
-  id = "warehouse-iot-prod-db-subnet-group"
 }
 
 import {
@@ -67,4 +56,14 @@ import {
 import {
   to = module.root.module.secrets_manager.aws_secretsmanager_secret.redis_password
   id = "warehouse-iot/redis-password"
+}
+
+import {
+  to = module.root.module.eks.aws_iam_role.ebs_csi
+  id = "warehouse-iot-prod-ebs-csi-role"
+}
+
+import {
+  to = module.root.module.iam.aws_iam_role.pod_role
+  id = "warehouse-iot-prod-pod-role"
 }
