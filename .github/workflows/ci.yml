@@ -69,6 +69,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      - name: Set Environment Variables
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "PROJECT_NAME=warehouse-iot-prod" >> $GITHUB_ENV
+          else
+            echo "PROJECT_NAME=warehouse-iot-dev" >> $GITHUB_ENV
+          fi
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -85,12 +93,12 @@ jobs:
       # Backend Build and Scan
       - name: Build Backend Docker Image
         run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }} -f backend/Dockerfile backend/
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ github.sha }} -f backend/Dockerfile backend/
 
       - name: Scan Backend Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ github.sha }}
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
@@ -99,19 +107,19 @@ jobs:
 
       - name: Push Backend Image to ECR
         run: |
-          docker tag ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:latest
-          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:${{ github.sha }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend:latest
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-backend:latest
 
       # Frontend Build and Scan
       - name: Build Frontend Docker Image
         run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }} -f frontend/Dockerfile frontend/
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ github.sha }} -f frontend/Dockerfile frontend/
 
       - name: Scan Frontend Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ github.sha }}
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
@@ -120,9 +128,9 @@ jobs:
 
       - name: Push Frontend Image to ECR
         run: |
-          docker tag ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:latest
-          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:${{ github.sha }}
-          docker push ${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend:latest
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}-frontend:latest
 
   deploy:
     name: Continuous Deployment to EKS
@@ -152,10 +160,14 @@ jobs:
             echo "CLUSTER_NAME=warehouse-iot-prod-cluster" >> $GITHUB_ENV
             echo "K8S_NAMESPACE=warehouse-prod" >> $GITHUB_ENV
             echo "ENVIRONMENT=production" >> $GITHUB_ENV
+            echo "AWS_REGION=us-west-2" >> $GITHUB_ENV
+            echo "PROJECT_NAME=warehouse-iot-prod" >> $GITHUB_ENV
           else
             echo "CLUSTER_NAME=warehouse-iot-dev-cluster" >> $GITHUB_ENV
             echo "K8S_NAMESPACE=warehouse-dev" >> $GITHUB_ENV
             echo "ENVIRONMENT=development" >> $GITHUB_ENV
+            echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
+            echo "PROJECT_NAME=warehouse-iot-dev" >> $GITHUB_ENV
           fi
 
       - name: Update Kubeconfig
@@ -173,17 +185,17 @@ jobs:
           helm upgrade --install warehouse-iot-${{ env.ENVIRONMENT }} . \
             --namespace ${{ env.K8S_NAMESPACE }} \
             --create-namespace \
-            --set image.backend.repository=${{ steps.login-ecr.outputs.registry }}/warehouse-iot-backend \
+            --set image.backend.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-backend \
             --set image.backend.tag=${{ github.sha }} \
-            --set image.frontend.repository=${{ steps.login-ecr.outputs.registry }}/warehouse-iot-frontend \
+            --set image.frontend.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-frontend \
             --set image.frontend.tag=${{ github.sha }} \
             --values values-${{ env.ENVIRONMENT == 'production' && 'production' || 'staging' }}.yaml
 
 
       - name: Verify Deployment Rollout
         run: |
-          kubectl rollout status deployment/warehouse-iot-backend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
-          kubectl rollout status deployment/warehouse-iot-frontend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/warehouse-iot-${{ env.ENVIRONMENT }}-backend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/warehouse-iot-${{ env.ENVIRONMENT }}-frontend -n ${{ env.K8S_NAMESPACE }} --timeout=120s
 
       - name: Notify Slack Webhook on Deployment Status
         if: always()
