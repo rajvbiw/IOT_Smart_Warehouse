@@ -216,6 +216,11 @@ jobs:
             --set image.frontend.tag=${{ github.sha }} \
             --values values-${{ env.ENVIRONMENT == 'production' && 'production' || 'staging' }}.yaml
 
+      - name: Force Delete Terminating Pods
+        run: |
+          echo "Checking for pods stuck in Terminating state..."
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }} | grep Terminating | awk '{print $1}' | xargs -r kubectl delete pod --force --grace-period=0 -n ${{ env.K8S_NAMESPACE }} || true
+
 
       - name: Verify Deployment Rollout
         run: |
