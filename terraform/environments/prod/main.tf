@@ -26,10 +26,10 @@ module "root" {
   aws_region             = "us-west-2"
   environment            = "prod"
   project_name           = "warehouse-iot-prod"
-  eks_node_instance_type = "t3.micro"
-  eks_desired_nodes      = 4
-  eks_min_nodes          = 3
-  eks_max_nodes          = 6
+  eks_node_instance_type = "t3.medium"
+  eks_desired_nodes      = 3
+  eks_min_nodes          = 2
+  eks_max_nodes          = 5
   rds_instance_class     = "db.t3.micro"
   domain_name            = "warehouse.example.com"
   alert_email            = "prod-alerts@warehouse.example.com"
