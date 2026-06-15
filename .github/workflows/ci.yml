@@ -205,6 +205,9 @@ jobs:
           # For a clean deployment, we apply configurations using kubectl and trigger rollout restart
           echo "Deploying update to namespace: ${{ env.K8S_NAMESPACE }}"
           
+          # Fetch RDS Endpoint
+          RDS_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier ${PROJECT_NAME}-mysql --query 'DBInstances[0].Endpoint.Address' --output text --region ${{ env.AWS_REGION }} || echo "RDS_ENDPOINT_PLACEHOLDER")
+          
           # Replace image placeholders or apply Helm Chart
           cd helm/warehouse-iot
           helm upgrade --install warehouse-iot-${{ env.ENVIRONMENT }} . \
@@ -214,6 +217,8 @@ jobs:
             --set image.backend.tag=${{ github.sha }} \
             --set image.frontend.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-frontend \
             --set image.frontend.tag=${{ github.sha }} \
+            --set db.host=$RDS_ENDPOINT \
+            --set db.password=password \
             --values values-${{ env.ENVIRONMENT == 'production' && 'production' || 'staging' }}.yaml
 
       - name: Force Delete Terminating Pods
