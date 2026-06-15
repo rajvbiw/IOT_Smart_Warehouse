@@ -220,6 +220,8 @@ jobs:
         run: |
           echo "Checking for pods stuck in Terminating state..."
           kubectl get pods -n ${{ env.K8S_NAMESPACE }} | grep Terminating | awk '{print $1}' | xargs -r kubectl delete pod --force --grace-period=0 -n ${{ env.K8S_NAMESPACE }} || true
+          echo "Checking for pods stuck in Pending state (to clear StatefulSet deadlocks)..."
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }} | grep Pending | awk '{print $1}' | xargs -r kubectl delete pod --force --grace-period=0 -n ${{ env.K8S_NAMESPACE }} || true
 
 
       - name: Verify Deployment Rollout
@@ -238,6 +240,11 @@ jobs:
           kubectl describe pods -n ${{ env.K8S_NAMESPACE }} || true
           echo "==== Events ===="
           kubectl get events -n ${{ env.K8S_NAMESPACE }} --sort-by='.metadata.creationTimestamp' || true
+          echo "==== Pod Logs ===="
+          for pod in $(kubectl get pods -n ${{ env.K8S_NAMESPACE }} -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- Logs for $pod ---"
+            kubectl logs $pod -n ${{ env.K8S_NAMESPACE }} --all-containers --previous || kubectl logs $pod -n ${{ env.K8S_NAMESPACE }} --all-containers || true
+          done
 
 
       - name: Notify Slack Webhook on Deployment Status

@@ -25,6 +25,9 @@ spec:
           imagePullPolicy: {{ .Values.image.frontend.pullPolicy }}
           ports:
             - containerPort: 80
+          env:
+            - name: BACKEND_SVC_NAME
+              value: {{ include "warehouse-iot.fullname" . }}-backend
           resources:
             {{- toYaml .Values.resources.frontend | nindent 12 }}
           livenessProbe:
