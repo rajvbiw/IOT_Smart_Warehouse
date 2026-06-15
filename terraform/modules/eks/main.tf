@@ -107,6 +107,13 @@ resource "aws_eks_node_group" "this" {
 resource "aws_eks_addon" "cni" {
   cluster_name = aws_eks_cluster.this.name
   addon_name   = "vpc-cni"
+
+  configuration_values = jsonencode({
+    env = {
+      ENABLE_PREFIX_DELEGATION = "true"
+      WARM_PREFIX_TARGET       = "1"
+    }
+  })
 }
 
 resource "aws_eks_addon" "coredns" {
