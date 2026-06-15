@@ -73,18 +73,29 @@ jobs:
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "PROJECT_NAME=warehouse-iot-prod" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
+            echo "AWS_REGION=us-west-2" >> $GITHUB_ENV
           else
             echo "PROJECT_NAME=warehouse-iot-dev" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
+            echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
           fi
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials via OIDC
+        if: ${{ secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '' }}
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{ (secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '') && format('arn:aws:iam::{0}:role/{1}', secrets.AWS_ACCOUNT_ID, github.ref == 'refs/heads/main' && 'warehouse-iot-prod-github-actions-role' || 'warehouse-iot-dev-github-actions-role') || '' }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Configure AWS Credentials via Access Keys
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ github.ref == 'refs/heads/main' && 'us-west-2' || 'us-east-1' }}
-          audience: sts.amazonaws.com
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Log in to Amazon ECR
         id: login-ecr
@@ -140,20 +151,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: ${{ (secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '') && format('arn:aws:iam::{0}:role/{1}', secrets.AWS_ACCOUNT_ID, github.ref == 'refs/heads/main' && 'warehouse-iot-prod-github-actions-role' || 'warehouse-iot-dev-github-actions-role') || '' }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ github.ref == 'refs/heads/main' && 'us-west-2' || 'us-east-1' }}
-          audience: sts.amazonaws.com
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'v1.28.2'
-
       - name: Set Cluster Target Environment Variables
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
@@ -162,13 +159,36 @@ jobs:
             echo "ENVIRONMENT=production" >> $GITHUB_ENV
             echo "AWS_REGION=us-west-2" >> $GITHUB_ENV
             echo "PROJECT_NAME=warehouse-iot-prod" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-prod-github-actions-role" >> $GITHUB_ENV
           else
             echo "CLUSTER_NAME=warehouse-iot-dev-cluster" >> $GITHUB_ENV
             echo "K8S_NAMESPACE=warehouse-dev" >> $GITHUB_ENV
             echo "ENVIRONMENT=development" >> $GITHUB_ENV
             echo "AWS_REGION=us-east-1" >> $GITHUB_ENV
             echo "PROJECT_NAME=warehouse-iot-dev" >> $GITHUB_ENV
+            echo "ROLE_NAME=warehouse-iot-dev-github-actions-role" >> $GITHUB_ENV
           fi
+
+      - name: Configure AWS Credentials via OIDC
+        if: ${{ secrets.AWS_ACCESS_KEY_ID == '' || secrets.AWS_SECRET_ACCESS_KEY == '' }}
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ env.ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Configure AWS Credentials via Access Keys
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.2'
 
       - name: Update Kubeconfig
         run: |
