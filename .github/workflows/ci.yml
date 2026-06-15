@@ -201,14 +201,30 @@ jobs:
 
       - name: Deploy Manifests / Trigger Helm Rollout
         run: |
-          # Apply standard Kubernetes manifests or run Helm upgrade
-          # For a clean deployment, we apply configurations using kubectl and trigger rollout restart
           echo "Deploying update to namespace: ${{ env.K8S_NAMESPACE }}"
           
-          # Fetch RDS Endpoint
-          RDS_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier ${PROJECT_NAME}-mysql --query 'DBInstances[0].Endpoint.Address' --output text --region ${{ env.AWS_REGION }} || echo "RDS_ENDPOINT_PLACEHOLDER")
-          
-          # Replace image placeholders or apply Helm Chart
+          # Fetch RDS Endpoint (use env.PROJECT_NAME not shell ${PROJECT_NAME})
+          RDS_ENDPOINT=$(aws rds describe-db-instances \
+            --db-instance-identifier ${{ env.PROJECT_NAME }}-mysql \
+            --query 'DBInstances[0].Endpoint.Address' \
+            --output text \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+
+          if [ -z "$RDS_ENDPOINT" ] || [ "$RDS_ENDPOINT" = "None" ]; then
+            echo "WARNING: Could not fetch RDS endpoint. Will use placeholder."
+            RDS_ENDPOINT="RDS_ENDPOINT_PLACEHOLDER"
+          else
+            echo "RDS Endpoint fetched: $RDS_ENDPOINT"
+          fi
+
+          # Fetch DB password from Secrets Manager
+          DB_PASSWORD=$(aws secretsmanager get-secret-value \
+            --secret-id ${{ env.PROJECT_NAME }}/db-password \
+            --query 'SecretString' \
+            --output text \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ChangeMe123!")
+
+          # Deploy via Helm
           cd helm/warehouse-iot
           helm upgrade --install warehouse-iot-${{ env.ENVIRONMENT }} . \
             --namespace ${{ env.K8S_NAMESPACE }} \
@@ -217,9 +233,10 @@ jobs:
             --set image.backend.tag=${{ github.sha }} \
             --set image.frontend.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-frontend \
             --set image.frontend.tag=${{ github.sha }} \
-            --set db.host=$RDS_ENDPOINT \
-            --set db.password=password \
-            --values values-${{ env.ENVIRONMENT == 'production' && 'production' || 'staging' }}.yaml
+            --set db.host="$RDS_ENDPOINT" \
+            --set db.password="$DB_PASSWORD" \
+            --set db.user=admin \
+            --values values-production.yaml
 
       - name: Force Delete Terminating Pods
         run: |
@@ -245,11 +262,15 @@ jobs:
           kubectl describe pods -n ${{ env.K8S_NAMESPACE }} || true
           echo "==== Events ===="
           kubectl get events -n ${{ env.K8S_NAMESPACE }} --sort-by='.metadata.creationTimestamp' || true
-          echo "==== Pod Logs ===="
+          echo "==== Pod Logs (current + previous) ===="
           for pod in $(kubectl get pods -n ${{ env.K8S_NAMESPACE }} -o jsonpath='{.items[*].metadata.name}'); do
-            echo "--- Logs for $pod ---"
-            kubectl logs $pod -n ${{ env.K8S_NAMESPACE }} --all-containers --previous || kubectl logs $pod -n ${{ env.K8S_NAMESPACE }} --all-containers || true
+            echo "--- Current logs: $pod ---"
+            kubectl logs $pod -n ${{ env.K8S_NAMESPACE }} --all-containers --tail=50 2>/dev/null || true
+            echo "--- Previous logs: $pod ---"
+            kubectl logs $pod -n ${{ env.K8S_NAMESPACE }} --all-containers --previous --tail=50 2>/dev/null || true
           done
+          echo "==== ConfigMap values ===="
+          kubectl get configmap warehouse-iot-production-config -n ${{ env.K8S_NAMESPACE }} -o yaml 2>/dev/null || true
 
 
       - name: Notify Slack Webhook on Deployment Status

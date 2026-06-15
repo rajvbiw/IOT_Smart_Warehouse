@@ -14,9 +14,6 @@ resources:
     limits:
       cpu: 500m
       memory: 256Mi
-
-redis:
-  host: warehouse-iot-production-redis
   frontend:
     requests:
       cpu: 10m
@@ -25,8 +22,15 @@ redis:
       cpu: 200m
       memory: 128Mi
 
+redis:
+  host: warehouse-iot-production-redis
+  port: 6379
+
 influx:
   url: http://warehouse-iot-production-influxdb:8086
+  org: warehouse-org
+  bucket: warehouse_sensors
+  token: warehouse-iot-influx-token-prod
   resources:
     requests:
       cpu: 10m
@@ -34,3 +38,19 @@ influx:
     limits:
       cpu: 500m
       memory: 512Mi
+
+db:
+  name: warehouse_iot
+  port: 3306
+  user: admin
+
+jwt:
+  secret: warehouse-iot-jwt-secret-prod-32chars
+  refreshSecret: warehouse-iot-refresh-secret-prod-32c
+
+aws:
+  region: ap-south-1
+  iotEndpoint: IOT_ENDPOINT_PLACEHOLDER
+  sqsQueueUrl: SQS_URL_PLACEHOLDER
+  s3Bucket: warehouse-iot-prod-reports
+  snsTopicArn: SNS_TOPIC_ARN_PLACEHOLDER
