@@ -199,13 +199,45 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
+
+
       - name: Deploy Manifests / Trigger Helm Rollout
         run: |
           echo "Deploying update to namespace: ${{ env.K8S_NAMESPACE }}"
 
-          # Use in-cluster MySQL (set in values-production.yaml mysql.enabled=true)
-          # DB host comes from values-production.yaml, no RDS needed
-          DB_PASSWORD="WarehouseIoT2024!"
+          # Fetch RDS Endpoint
+          RDS_ENDPOINT=$(aws rds describe-db-instances \
+            --db-instance-identifier ${{ env.PROJECT_NAME }}-mysql \
+            --query 'DBInstances[0].Endpoint.Address' \
+            --output text \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+          if [ -z "$RDS_ENDPOINT" ] || [ "$RDS_ENDPOINT" = "None" ]; then
+            echo "WARNING: Could not fetch RDS endpoint. Will use placeholder."
+            RDS_ENDPOINT="RDS_ENDPOINT_PLACEHOLDER"
+          else
+            echo "RDS Endpoint fetched: $RDS_ENDPOINT"
+          fi
+
+          # Fetch ElastiCache Endpoint
+          REDIS_ENDPOINT=$(aws elasticache describe-cache-clusters \
+            --cache-cluster-id ${{ env.PROJECT_NAME }}-redis \
+            --show-cache-node-info \
+            --query 'CacheClusters[0].CacheNodes[0].Endpoint.Address' \
+            --output text \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "")
+          if [ -z "$REDIS_ENDPOINT" ] || [ "$REDIS_ENDPOINT" = "None" ]; then
+            echo "WARNING: Could not fetch ElastiCache endpoint. Will use placeholder."
+            REDIS_ENDPOINT="ELASTICACHE_ENDPOINT_PLACEHOLDER"
+          else
+            echo "ElastiCache Endpoint fetched: $REDIS_ENDPOINT"
+          fi
+
+          # Fetch DB password from Secrets Manager
+          DB_PASSWORD=$(aws secretsmanager get-secret-value \
+            --secret-id warehouse-iot/db-password \
+            --query 'SecretString' \
+            --output text \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || echo "password")
 
           # Deploy via Helm
           cd helm/warehouse-iot
@@ -216,23 +248,10 @@ jobs:
             --set image.backend.tag=${{ github.sha }} \
             --set image.frontend.repository=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.PROJECT_NAME }}-frontend \
             --set image.frontend.tag=${{ github.sha }} \
+            --set db.host="$RDS_ENDPOINT" \
             --set db.password="$DB_PASSWORD" \
+            --set redis.host="$REDIS_ENDPOINT" \
             --values values-production.yaml
-
-      - name: Wait for MySQL to be Ready
-        run: |
-          echo "Forcing recreation of mysql-0 pod to apply updated resource limits..."
-          kubectl delete pod warehouse-iot-${{ env.ENVIRONMENT }}-mysql-0 -n ${{ env.K8S_NAMESPACE }} --ignore-not-found || true
-          echo "Waiting for MySQL StatefulSet to be ready..."
-          kubectl rollout status statefulset/warehouse-iot-${{ env.ENVIRONMENT }}-mysql -n ${{ env.K8S_NAMESPACE }} --timeout=180s || true
-
-      - name: Force Delete Terminating Pods
-        run: |
-          echo "Checking for pods stuck in Terminating state..."
-          kubectl get pods -n ${{ env.K8S_NAMESPACE }} | grep Terminating | awk '{print $1}' | xargs -r kubectl delete pod --force --grace-period=0 -n ${{ env.K8S_NAMESPACE }} || true
-          echo "Checking for pods stuck in Pending state (to clear StatefulSet deadlocks)..."
-          kubectl get pods -n ${{ env.K8S_NAMESPACE }} | grep Pending | awk '{print $1}' | xargs -r kubectl delete pod --force --grace-period=0 -n ${{ env.K8S_NAMESPACE }} || true
-
 
       - name: Verify Deployment Rollout
         run: |

@@ -1,18 +1,8 @@
 db:
-  host: warehouse-iot-production-mysql
+  host: RDS_ENDPOINT_PLACEHOLDER
   name: warehouse_iot
   port: 3306
-  user: warehouse
-
-mysql:
-  enabled: true
-  resources:
-    requests:
-      cpu: 10m
-      memory: 16Mi
-    limits:
-      cpu: 250m
-      memory: 512Mi
+  user: root
 
 replicaCount: 1
 
@@ -39,15 +29,8 @@ resources:
       memory: 128Mi
 
 redis:
-  host: warehouse-iot-production-redis
+  host: ELASTICACHE_ENDPOINT_PLACEHOLDER
   port: 6379
-  resources:
-    requests:
-      cpu: 10m
-      memory: 16Mi
-    limits:
-      cpu: 200m
-      memory: 128Mi
 
 influx:
   url: http://warehouse-iot-production-influxdb:8086

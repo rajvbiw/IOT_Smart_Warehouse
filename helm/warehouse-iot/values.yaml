@@ -18,29 +18,12 @@ db:
   host: RDS_ENDPOINT_PLACEHOLDER
   name: warehouse_iot
   port: 3306
-  user: admin
-  password: CHANGE_ME
-
-mysql:
-  enabled: false
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 256Mi
+  user: root
+  password: password
 
 redis:
   host: ELASTICACHE_ENDPOINT_PLACEHOLDER
   port: 6379
-  resources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 128Mi
 
 influx:
   url: http://influxdb:8086
