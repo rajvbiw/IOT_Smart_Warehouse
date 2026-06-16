@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-prometheus-pvc
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-prometheus-config
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-prometheus
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "warehouse-iot.selectorLabels" . | nindent 6 }}
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        {{- include "warehouse-iot.selectorLabels" . | nindent 8 }}
+        app: prometheus
+    spec:
+      serviceAccountName: {{ include "warehouse-iot.fullname" . }}-prometheus-sa
+      securityContext:
+        fsGroup: 65534
+        runAsUser: 65534
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.45.0
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--storage.tsdb.retention.time=6h"
+          ports:
+            - containerPort: 9090
+              name: web
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: storage
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "warehouse-iot.fullname" . }}-prometheus-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "warehouse-iot.fullname" . }}-prometheus-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-prometheus
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: web
+  selector:
+    {{- include "warehouse-iot.selectorLabels" . | nindent 4 }}
+    app: prometheus
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-prometheus-sa
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-prometheus-cr
+rules:
+  - apiGroups: [""]
+    resources:
+      - nodes
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - statefulsets
+      - deployments
+    verbs: ["get", "list", "watch"]
+  - nonResourceURLs: ["/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-prometheus-crb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "warehouse-iot.fullname" . }}-prometheus-cr
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "warehouse-iot.fullname" . }}-prometheus-sa
+    namespace: {{ .Release.Namespace }}

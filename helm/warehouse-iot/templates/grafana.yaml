@@ -32,6 +32,14 @@ data:
           defaultBucket: {{ .Values.influx.bucket | quote }}
         secureJsonData:
           token: ${INFLUXDB_TOKEN}
+  prometheus.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://{{ include "warehouse-iot.fullname" . }}-prometheus:9090
+        isDefault: false
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -107,6 +115,9 @@ spec:
             - name: provisioning-datasource
               mountPath: /etc/grafana/provisioning/datasources/influxdb.yaml
               subPath: influxdb.yaml
+            - name: provisioning-datasource
+              mountPath: /etc/grafana/provisioning/datasources/prometheus.yaml
+              subPath: prometheus.yaml
             - name: provisioning-dashboard-conf
               mountPath: /etc/grafana/provisioning/dashboards/dashboard.yaml
               subPath: dashboard.yaml
