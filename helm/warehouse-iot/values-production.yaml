@@ -1,3 +1,12 @@
+db:
+  host: warehouse-iot-production-mysql
+  name: warehouse_iot
+  port: 3306
+  user: warehouse
+
+mysql:
+  enabled: true
+
 replicaCount: 1
 
 ingress:
@@ -38,11 +47,6 @@ influx:
     limits:
       cpu: 500m
       memory: 512Mi
-
-db:
-  name: warehouse_iot
-  port: 3306
-  user: admin
 
 jwt:
   secret: warehouse-iot-jwt-secret-prod-32chars

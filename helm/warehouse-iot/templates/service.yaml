@@ -80,3 +80,21 @@ spec:
   selector:
     {{- include "warehouse-iot.selectorLabels" . | nindent 4 }}
     app: mosquitto
+{{- if .Values.mysql.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-mysql
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+  selector:
+    {{- include "warehouse-iot.selectorLabels" . | nindent 4 }}
+    app: mysql
+{{- end }}

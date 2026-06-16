@@ -1,0 +1,73 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "warehouse-iot.fullname" . }}-mysql
+  labels:
+    {{- include "warehouse-iot.labels" . | nindent 4 }}
+    app: mysql
+spec:
+  serviceName: {{ include "warehouse-iot.fullname" . }}-mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "warehouse-iot.selectorLabels" . | nindent 6 }}
+      app: mysql
+  template:
+    metadata:
+      labels:
+        {{- include "warehouse-iot.selectorLabels" . | nindent 8 }}
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "warehouse-iot.fullname" . }}-secret
+                  key: DB_PASSWORD
+            - name: MYSQL_DATABASE
+              value: {{ .Values.db.name | quote }}
+            - name: MYSQL_USER
+              value: {{ .Values.db.user | quote }}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "warehouse-iot.fullname" . }}-secret
+                  key: DB_PASSWORD
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command: ["mysqladmin", "ping", "-h", "localhost"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command: ["mysql", "-h", "localhost", "-u", "root", "-p$(MYSQL_ROOT_PASSWORD)", "-e", "SELECT 1"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: mysql-storage
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 10Gi
+{{- end }}
