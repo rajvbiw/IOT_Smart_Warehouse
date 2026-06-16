@@ -75,3 +75,9 @@ resources:
 keda:
   enabled: false
 
+service:
+  frontend:
+    type: ClusterIP
+  grafana:
+    type: ClusterIP
+

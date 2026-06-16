@@ -20,8 +20,13 @@ metadata:
   name: {{ include "warehouse-iot.fullname" . }}-frontend
   labels:
     {{- include "warehouse-iot.labels" . | nindent 4 }}
+  {{- if and .Values.service (and .Values.service.frontend (eq .Values.service.frontend.type "LoadBalancer")) }}
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+  {{- end }}
 spec:
-  type: ClusterIP
+  type: {{ if and .Values.service .Values.service.frontend }}{{ .Values.service.frontend.type }}{{ else }}ClusterIP{{ end }}
   ports:
     - name: http
       port: 80

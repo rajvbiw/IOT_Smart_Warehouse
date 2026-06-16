@@ -55,3 +55,11 @@ aws:
   sqsQueueUrl: SQS_URL_PLACEHOLDER
   s3Bucket: warehouse-iot-prod-reports
   snsTopicArn: SNS_TOPIC_ARN_PLACEHOLDER
+
+service:
+  frontend:
+    type: LoadBalancer
+  grafana:
+    type: LoadBalancer
+
+
