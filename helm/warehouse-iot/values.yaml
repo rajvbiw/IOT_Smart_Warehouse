@@ -23,6 +23,13 @@ db:
 
 mysql:
   enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
 
 redis:
   host: ELASTICACHE_ENDPOINT_PLACEHOLDER

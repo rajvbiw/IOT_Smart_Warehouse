@@ -11,7 +11,8 @@ class S3Service {
     this.uploadDir = path.join(__dirname, '../../uploads');
     
     // Determine if we should run in Mock mode (local file writes)
-    this.isMock = !process.env.AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID === 'CHANGE_ME';
+    const hasAwsCreds = (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_ACCESS_KEY_ID !== 'CHANGE_ME') || process.env.AWS_ROLE_ARN;
+    this.isMock = !hasAwsCreds;
     
     if (this.isMock) {
       if (!fs.existsSync(this.uploadDir)) {
