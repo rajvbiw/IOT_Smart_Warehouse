@@ -1,8 +1,9 @@
 db:
-  host: RDS_ENDPOINT_PLACEHOLDER
+  host: warehouse-iot-prod-mysql.cr8o0as8uj0s.ap-south-1.rds.amazonaws.com
   name: warehouse_iot
   port: 3306
   user: root
+  password: password
 
 replicaCount: 1
 
@@ -29,7 +30,7 @@ resources:
       memory: 128Mi
 
 redis:
-  host: ELASTICACHE_ENDPOINT_PLACEHOLDER
+  host: warehouse-iot-prod-redis.wxqtam.0001.aps1.cache.amazonaws.com
   port: 6379
 
 influx:
@@ -62,4 +63,10 @@ service:
   grafana:
     type: LoadBalancer
 
-
+image:
+  backend:
+    repository: 446483465469.dkr.ecr.ap-south-1.amazonaws.com/warehouse-iot-prod-backend
+    tag: 9af0b3a6bb1f79ff9af7b482819a8add63d061e8
+  frontend:
+    repository: 446483465469.dkr.ecr.ap-south-1.amazonaws.com/warehouse-iot-prod-frontend
+    tag: 9af0b3a6bb1f79ff9af7b482819a8add63d061e8
