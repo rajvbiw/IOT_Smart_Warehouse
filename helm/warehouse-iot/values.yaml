@@ -34,6 +34,13 @@ mysql:
 redis:
   host: ELASTICACHE_ENDPOINT_PLACEHOLDER
   port: 6379
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 
 influx:
   url: http://influxdb:8086

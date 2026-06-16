@@ -23,12 +23,7 @@ spec:
           ports:
             - containerPort: 6379
           resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
+            {{- toYaml .Values.redis.resources | nindent 12 }}
           livenessProbe:
             exec:
               command: ["redis-cli", "ping"]
