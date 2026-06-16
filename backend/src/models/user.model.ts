@@ -69,7 +69,7 @@ export function initUser(sequelize: Sequelize): typeof User {
       timestamps: true,
       hooks: {
         beforeSave: async (user: User) => {
-          if (user.changed('password_hash') || (user.isNewRecord && user.password_hash && !user.password_hash.startsWith('$2a$'))) {
+          if (user.changed('password_hash') && !user.password_hash.startsWith('$2a$') && !user.password_hash.startsWith('$2b$')) {
             const salt = await bcrypt.genSalt(10);
             user.password_hash = await bcrypt.hash(user.password_hash, salt);
           }
