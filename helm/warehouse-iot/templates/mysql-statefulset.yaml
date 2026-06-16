@@ -9,6 +9,8 @@ metadata:
 spec:
   serviceName: {{ include "warehouse-iot.fullname" . }}-mysql
   replicas: 1
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       {{- include "warehouse-iot.selectorLabels" . | nindent 6 }}
