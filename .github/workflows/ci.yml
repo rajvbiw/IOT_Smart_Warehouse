@@ -205,6 +205,14 @@ jobs:
         run: |
           echo "Deploying update to namespace: ${{ env.K8S_NAMESPACE }}"
 
+          # Clean up old in-cluster MySQL resources to reclaim storage/memory
+          kubectl delete statefulset warehouse-iot-${{ env.ENVIRONMENT }}-mysql -n ${{ env.K8S_NAMESPACE }} --ignore-not-found || true
+          kubectl delete pvc mysql-storage-warehouse-iot-${{ env.ENVIRONMENT }}-mysql-0 -n ${{ env.K8S_NAMESPACE }} --ignore-not-found || true
+
+          # Force delete old InfluxDB resources to trigger clean initialization with new token
+          kubectl delete statefulset warehouse-iot-${{ env.ENVIRONMENT }}-influxdb -n ${{ env.K8S_NAMESPACE }} --ignore-not-found || true
+          kubectl delete pvc influxdb-storage-warehouse-iot-${{ env.ENVIRONMENT }}-influxdb-0 -n ${{ env.K8S_NAMESPACE }} --ignore-not-found || true
+
           # Fetch RDS Endpoint
           RDS_ENDPOINT=$(aws rds describe-db-instances \
             --db-instance-identifier ${{ env.PROJECT_NAME }}-mysql \
