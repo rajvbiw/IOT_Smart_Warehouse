@@ -25,4 +25,4 @@ data:
   S3_BUCKET: {{ .Values.aws.s3Bucket | quote }}
   FRONTEND_URL: "https://{{ .Values.ingress.host }}"
   SOCKET_CORS_ORIGIN: "https://{{ .Values.ingress.host }}"
-  SIMULATE_DEVICES: "false"
+  SIMULATE_DEVICES: {{ .Values.simulateDevices | default "false" | quote }}

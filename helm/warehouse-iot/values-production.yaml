@@ -13,6 +13,8 @@ ingress:
 autoscaling:
   enabled: false
 
+simulateDevices: "true"
+
 resources:
   backend:
     requests:
